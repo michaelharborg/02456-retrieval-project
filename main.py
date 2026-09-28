@@ -9,7 +9,6 @@ from src.evaluation.metrics import Evaluate
 def main(cfg):
     ### Load a dataset
     corpus = Corpus(dataset_name=cfg.dataset.name, base_dir=f'{cfg.base_path}/retrieval_data')
-    breakpoint()
     ### Prepare queries
     train_queries = [Query(corpus.train['question'][idx], 
                            id=corpus.train['query_id'][idx], 
@@ -48,8 +47,6 @@ def main(cfg):
     print(f'Train results: {train_scores}')
     print(f'Val results: {val_scores}')
     print(f'Test results: {test_scores}')
-
-    breakpoint()
 
 if __name__ == '__main__':
     main()
