@@ -3,9 +3,11 @@ from src.data_utils.query import Query
 def calculateRecall(relevancies: list[bool], query: Query):
     if query.getNumberOfRelevantDocuments() == 0:
         return 0
-    return sum(relevancies) / min(len(relevancies), query.getNumberOfRelevantDocuments())
+    return sum(relevancies) / query.getNumberOfRelevantDocuments()
 
 def calculatePrecision(relevancies: list[bool]):
+    if not relevancies:
+        return 0
     return sum(relevancies) / len(relevancies)
 
 def calculateRR(relevancies: list[bool]):

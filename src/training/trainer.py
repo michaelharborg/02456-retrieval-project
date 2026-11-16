@@ -73,7 +73,7 @@ class Trainer:
                 ) 
 
                 # Compute loss
-                loss = self.criterion(query_embeddings, passage_embeddings)
+                loss = self.criterion(query_embeddings, passage_embeddings).mean()  # Mean over the batch
                 loss.backward()
                 optimizer.step()
 
