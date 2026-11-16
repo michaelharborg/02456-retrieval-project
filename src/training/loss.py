@@ -15,4 +15,7 @@ class DPRLoss(nn.Module):
 
         Returns: A 1d torch tensor 
         """
-        raise NotImplementedError()
+        scores = torch.matmul(queries, documents.T)
+        positive_scores = torch.diagonal(scores)
+        denominator = torch.logsumexp(scores,1)
+        return denominator - positive_scores
