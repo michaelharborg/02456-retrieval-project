@@ -3,6 +3,55 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import sqrt
 
+
+class EncoderLayer(nn.Module):
+    def __init__(
+            self, emb_dim: int, hidden_dim: int, n_heads: int, feed_forward_dim, dropout: float = 0.1
+    ):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.hidden_dim = hidden_dim
+        self.n_heads = n_heads
+        self.head_dim = hidden_dim
+        self.feed_forward_dim = feed_forward_dim
+        self.dropout = dropout
+
+        self.q = nn.Linear(self.emb_dim, self.emb_dim)
+        self.k = nn.Linear(self.emb_dim, self.emb_dim)
+        self.v = nn.Linear(self.emb_dim, self.emb_dim)
+        self.output = nn.Linear(self.emb_dim, self.emb_dim)
+
+        self.linear1 = nn.Linear(self.emb_dim, self.feed_forward_dim)
+        self.linear2 = nn.Linear(self.feed_forward_dim, self.emb_dim)
+
+        self.layer_norm1 = nn.LayerNorm(self.emb_dim)
+        self.layer_norm2 = nn.LayerNorm(self.emb_dim)
+        self.dropout_layer = nn.Dropout(self.dropout)
+
+    def forward(self, x, attention_mask):
+        batch_size, seq_length, embedding_size = x.size()
+
+        q = self.q(x).view(batch_size, seq_length, self.n_heads, self.head_dim).transpose(1, 2)
+        k = self.k(x).view(batch_size, seq_length, self.n_heads, self.head_dim).transpose(1, 2)
+        v = self.v(x).view(batch_size, seq_length, self.n_heads, self.head_dim).transpose(1, 2)
+
+        # Compute attention scores
+        attention_scores = (q @ k.transpose(-2, -1)) / sqrt(self.head_dim)
+        attention_scores = attention_scores.masked_fill(attention_mask[:, None, None, :] == 0, float('-inf'))  # Mask padding tokens
+        attention_weights = torch.softmax(attention_scores, dim=-1)
+
+        # Apply attention weights to values
+        attended_values = self.dropout_layer(attention_weights) @ v
+        attended_values = attended_values.transpose(1, 2).reshape(batch_size, seq_length, embedding_size)
+
+        x = self.layer_norm1(x + self.dropout_layer(self.output(attended_values)))
+        
+        ff = self.dropout_layer(F.relu(self.linear1(x)))
+        ff = self.linear2(ff)
+        x = self.layer_norm2(x + self.dropout_layer(ff))  
+
+        return x
+
 class TransformerEncoder(nn.Module):
     def __init__(self, n_layers: int, n_heads: int, emb_dim: int, hidden_dim: int, feed_forward_dim: int, vocab_size=30522, max_len=512, pooling_type='cls', dropout=0.1, pad_token_id=0):
         super().__init__()
@@ -18,7 +67,6 @@ class TransformerEncoder(nn.Module):
         self.pad_token_id = pad_token_id
         self.setup_model()
         
-
     def setup_model(self):
         """
         Instantiate the model.
@@ -26,18 +74,17 @@ class TransformerEncoder(nn.Module):
         self.token_embedding = nn.Embedding(num_embeddings=self.vocab_size, embedding_dim=self.emb_dim, padding_idx=self.pad_token_id)
         self.position_embedding = nn.Embedding(num_embeddings=self.max_len, embedding_dim=self.emb_dim)
 
-        self.model = nn.TransformerEncoder(
-            encoder_layer=nn.TransformerEncoderLayer(
-                d_model=self.emb_dim,
-                nhead=self.n_heads,
-                dim_feedforward=self.feed_forward_dim,
-                dropout=self.dropout,
-                batch_first=True,
-                activation='relu'
-
-            ),
-            num_layers=self.n_layers
-        )
+        self.model = nn.ModuleList([
+            EncoderLayer(
+                emb_dim=self.emb_dim,
+                n_heads=self.n_heads,
+                hidden_dim=self.hidden_dim,
+                feed_forward_dim=self.feed_forward_dim,
+                dropout=self.dropout
+            )
+            for _ in range(self.n_layers)
+            ])
+        
         return self.model
 
     def pool(self, x, attention_mask):
@@ -63,7 +110,13 @@ class TransformerEncoder(nn.Module):
         """
         Run a forward pass on the model
         """
-        x = self.token_embedding(input_ids) + self.position_embedding(torch.arange(input_ids.size(1), device=input_ids.device))
-        x = self.model(x, src_key_padding_mask=(attention_mask == 0) )
-        x = self.pool(x, attention_mask)  # Pool the output embeddings
-        return x
+        positions = torch.arange(input_ids.size(1), device=input_ids.device)
+
+        x = (self.token_embedding(input_ids) + 
+             self.position_embedding(positions)
+             )
+
+        for layer in self.model:
+            x = layer(x, attention_mask)
+
+        return self.pool(x, attention_mask)

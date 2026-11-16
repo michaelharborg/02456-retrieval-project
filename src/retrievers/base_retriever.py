@@ -30,12 +30,11 @@ class Retriever(ABC):
         """
         @param index_path: The path to save the pre-computed index.
         """
-        if not os.path.exists(os.path.dirname(index_path)):
-            os.makedirs(os.path.dirname(index_path))
-        file = open(index_path, 'wb')
-        pickle.dump(self.index, file)
-        file.close()
-
+        parent = os.path.dirname(index_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(index_path, 'wb') as file:
+            pickle.dump(self.index, file)
         
     @abstractmethod
     def CalculateScores(self, query: str):
