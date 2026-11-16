@@ -14,20 +14,14 @@ class BM25(TFIDF):
         super(BM25, self).__init__(documents, index_path)
         self.k1 = k1
         self.b = b
-
         self.documents = list(self.index.GetDocuments())
-
         self.document_term_counts = {document: Counter(self.PreprocessText(document.GetText())) for document in self.documents}
-
         self.document_lengths, self.average_document_length = self.GetDocumentLengths()
-
         self.corpus_vocabulary = self.GetCorpusVocabulary()
-
         self.term_to_index = {term: idx
                               for idx, term in enumerate(sorted(self.corpus_vocabulary))
                               }
         self.document_frequencies = self.GetDocumentFrequencies()
-
         self.inverse_document_frequencies = {term: self.InverseDocumentFrequency(term) for term in self.corpus_vocabulary}
 
         if type(self) == BM25:
