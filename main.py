@@ -33,16 +33,14 @@ def main(cfg):
                     ]
     
     ### Initialize TF-IDF class
-    print("INICIANDO EJECUCIÓN NUEVA", flush=True)
-    
-    ### Initialize TF-IDF class
-    print("Creando TF-IDF...", flush=True)
+    print("Creating TF-IDF...", flush=True)
     tf_idf = TFIDF(documents=corpus.all_documents)
-    print("TF-IDF creado.", flush=True)
+    print("TF-IDF created.", flush=True)
 
-    print("Creando BM25...", flush=True)
+    ### Initialize BM25 class
+    print("Creating BM25...", flush=True)
     bm25 = BM25(documents=corpus.all_documents, k1=cfg.bm25.k1, b=cfg.bm25.b)
-    print("BM25 creado.", flush=True)
+    print("BM25 created.", flush=True)
    
     
     ### Retrieve top-k relevant queries
